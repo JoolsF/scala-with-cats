@@ -1,13 +1,14 @@
 package chapters
 
+
 /**
   * Type Classes
   */
-object ChapterOne {
+object ChapterOneExercises {
 
-  /*
+  /** **************************
     * Ex 1.3
-    */
+    * **************************/
   final case class Cat(name: String, age: Int, color: String)
 
   trait Printable[A] {
@@ -59,5 +60,104 @@ object ChapterOne {
 
   c.print // Julian is a 37 year-old Black cat
 
+  /**
+    *  1.5.4
+    * Re-implement the Cat application using Show instead of Printable.
+    */
+
+  import cats.syntax.show._
+  import cats.Show
+
+  implicit def showCat: Show[Cat] = Show.show { c =>
+    s"${c.name} is a ${c.age} year-old ${c.color} cat"
+  }
+
+  c.show
+
+  /**
+    * 1.5.5
+    * Implement Eq[Cat]
+    */
+
+  import cats.Eq
+  import cats.syntax.eq._
+  import cats.instances.int._
+  import cats.instances.string._
+
+  implicit val catEq: Eq[Cat] = Eq.instance { (cat1, cat2) =>
+    (cat1.name === cat2.name) &&
+      (cat1.age === cat2.age) &&
+      (cat1.color === cat2.color)
+  }
+
+}
+
+object ChapterOneNotes {
+  /**
+    * Show type class
+    */
+  //import type classes
+  import cats.Show
+
+  //each import provides instances of all Cats’ type classes for a specific parameter type:
+  import cats.instances.int._
+
+  val showInt = Show.apply[Int]
+  showInt.show(1)
+
+  // cats provides different syntax imports for each type class
+  import cats.syntax.show._
+
+  1.show
+
+  // implementing custom instances
+  import java.time.LocalDateTime
+
+  implicit def dateTimeShow = new Show[LocalDateTime] {
+    def show(t: LocalDateTime): String =
+      s"Hour: ${t.getHour} Min: ${t.getMinute} Sec: ${t.getSecond}"
+  }
+
+  val a = java.time.LocalDateTime.now()
+  a.show
+
+  // show also contains convenience methods
+  case class Person(firstName: String, surname: String, age: Int)
+
+  val p = Person("Julian", "Fenner", 37)
+  val pToString: Person => String = p => s"First name: ${p.firstName} Surname: ${p.surname} Age ${p.age}"
+
+  implicit val showPerson: Show[Person] = Show.show(pToString)
+
+
+  /**
+    * Eq - Type safe equals
+    * trait Eq[A] {
+    * def eqv(a: A, b: A): Boolean
+    * // other concrete methods based on eqv...
+    * }
+    *
+    * === compares two objects for equality
+    *  =!= compares two objects for inequality.
+    */
+
+  import cats.Eq
+
+  val eqInt = Eq[Int]
+  eqInt.eqv(1, 2)
+
+  //  We can also import the interface syntax in cats.syntax.eq to use the === and =!= methods:
+  import cats.syntax.eq._
+
+  123.===(123)
+
+  // Comparing custom type
+  implicit val personCompare: Eq[Person] = Eq.instance { (p1, p2) =>
+    p1.firstName == p2.firstName &&
+      p1.surname == p2.surname &&
+      p1.age == p2.age
+  }
+
+  p =!= p // false
 
 }
