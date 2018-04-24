@@ -1,5 +1,0 @@
-package chapters
-
-class MainTest {
-
-}
