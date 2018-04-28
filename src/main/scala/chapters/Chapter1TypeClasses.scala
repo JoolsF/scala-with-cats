@@ -4,7 +4,7 @@ package chapters
 /**
   * Type Classes
   */
-object ChapterOneExercises {
+object Ch1Exercises {
 
   /** **************************
     * Ex 1.3
@@ -92,7 +92,7 @@ object ChapterOneExercises {
 
 }
 
-object ChapterOneNotes {
+object Ch1Notes {
   /**
     * Show type class
     */
