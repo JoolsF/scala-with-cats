@@ -195,16 +195,6 @@ object Chapter3 {
   }
 
 
-  /**
-    * Contravariant and Invariant Functors
-    *
-    * Functors map is a of appending a transformation to a chain.
-    * A contravariant functor represents prepending operations.
-    * Invariant functor represents a bidirectional chain of operations.
-    */
-
-
-
 }
 
 
