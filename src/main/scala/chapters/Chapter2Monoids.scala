@@ -47,7 +47,7 @@ object Ch2MonoidBasics {
     *
     * 2.3 the truth about monoids
     * Consider Boolean. How many monoids can you define for this type? For each monoid,
-    * define the combine and empty opera ons and convince yourself that the monoid laws hold.
+    * define the combine and empty operations and convince yourself that the monoid laws hold.
     * Use the following definitions as a staring point
     */
   object BooleanMonoidInstances {
