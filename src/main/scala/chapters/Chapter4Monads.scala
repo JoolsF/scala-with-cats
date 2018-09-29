@@ -202,17 +202,62 @@ object Chapter4Monad_2 {
    * Transforming Eithers
    */
 
+
   // p 373 Either from a try with a left map to handle error case
-  def squareString(s: String): Either[String, Int] = {
+
+  def squareString(s: => String): Either[String, Int] = {
     Either.fromTry(
       Try {
         val i = s.toInt
         i * i
       }
     ).leftMap {
-      s => "doh!"
+      case _: NumberFormatException => "Boom - number format exception!"
+      case _: NullPointerException => "Bang - null pointer exception!"
     }
   }
+
+
+  squareString("1") // res0: Either[String,Int] = Right(1)
+  squareString("s") // res1: Either[String,Int] = Left(Boom - number format exception!)
+  squareString(throw new NullPointerException) //res2: Either[String,Int] = Left(Bang - null pointer exception!)
+
+  // Ensuring -  must satisfy a predicate
+
+  def squareString(s: String, p: Int => Boolean): Either[String, Int] = {
+    Either.fromTry( // Either from Try
+      Try {
+        val i = s.toInt
+        i * i
+      }
+    ).leftMap { case _: NumberFormatException => "Boom - number format exception!" } // Left map
+  }.ensure("result must not equal 9")(p) // Predicate to check with result satisfies a predicate
+
+  val p: Int => Boolean = _ != 9
+
+  squareString("2", p) // Right(4)
+  squareString("2!", p) // Left(Boom - number format exception!!)
+  squareString("3", p) // Left(must not equal 9)
+
+  // Bimap
+  def cubeString(s: String): Either[Error, String] = {
+    Either.fromTry(
+      Try {
+        val i = s.toInt
+        i * i * i
+      }
+    ).bimap(
+      e => Error(e.getMessage),
+      s => s"$s!!!"
+    )
+  }
+
+  cubeString("4") // Right(64!!!)
+  cubeString("foo") // Left(Error(For input string: "foo"))
+
+
+
+
 
 
 }
