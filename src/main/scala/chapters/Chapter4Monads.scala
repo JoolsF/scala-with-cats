@@ -1,5 +1,9 @@
 package chapters
 
+import cats.Monad
+
+import scala.util.Try
+
 object Chapter4Monads {
 
   /**
@@ -58,15 +62,16 @@ object Chapter4Monads {
       flatMap(value)(a => pure(func(a)))
   }
 
-  trait MonadWithLaws[F[_]] extends Monad[F[_]] {
-
-    def flatMap[A, B](value: F[A])(func: A => F[B]): Boolean
-
-  }
+  //  trait MonadWithLaws[F[_]] extends Monad[F[_]] {
+  //
+  //    def flatMap[A, B](value: F[A])(func: A => F[B]): Boolean
+  //
+  //  }
 
   /**
     * Monads in Cats
     */
+
   import cats.Monad
   import cats.instances.option._
   import cats.instances.list._
@@ -83,15 +88,132 @@ object Chapter4Monads {
 
   val list3 = Monad[List].flatMap(list2)(x => List(x * 10)) //List(10, 90, 20, 180, 30, 270)
 
+}
+
+object Chapter4Monad_2 {
+
   /**
+    * Syntax
     *
-    * Default instances
+    * Example abstracting over different monads
     */
 
+  import cats.Monad
+  import cats.syntax.functor._ // for map
+  import cats.syntax.flatMap._ // for flatMap
+  import scala.language.higherKinds
 
-  //import cats.instances.option._ // for Monad
 
-  Monad[Option].flatMap(Option(1))(a => Option(a*2))
+  def sumSquare[F[_] : Monad](a: F[Int], b: F[Int]): F[Int] = {
+    for {
+      aVal <- a
+      bVal <- b
+    } yield aVal * aVal + bVal * bVal
+
+  }
+
+  import cats.instances.option._ // for Monad
+  import cats.instances.list._ // for Monad”
+
+  sumSquare(List(1, 2, 3), List(4, 5)) // res0: List[Int] = List(17, 26, 20, 29, 25, 34)
+  sumSquare(Option(2), Option(9)) // res1: Option[Int] = Some(85)
+
+
+  /**
+    * Identity Monad
+    *
+    * Allows similar to above but can use Monadic and non-Monadic parameters
+    * This is extremely powerful as it means that we can run code asynchronously in production
+    * and synchronously in tests
+    */
+
+  import cats.Id
+
+  sumSquare(3: Id[Int], 4: Id[Int]) // 25
+
+  /*
+   * type Id[A] = A
+   *
+   * Id is a type alias that turns at atomic type into a single-parameter type constructor
+   *
+   */
+
+  val a = Monad[Id].pure(3)
+
+  /**
+    * Implement pure map and flatMap for Id
+    */
+
+  type MyId[A] = A
+
+  def pure[A](value: A): MyId[A] = value
+
+  def map[A, B](value: MyId[A])(f: A => B): MyId[B] = f(value)
+
+  def flatMap[A, B](value: MyId[A])(f: A => MyId[B]): MyId[B] = f(value)
+
+  /*
+   * The purpose of a Monad is to allow us to sequence operations ignoring a complication
+   * However, in this of Id / MyId there is no intermediate complication, these are atomic types.
+   * MyId[A] is simply an alias of A!
+   * Pure returns the argument.
+   * Map and flatMap are identical since A => B === A => Id[B]
+   */
+
+  /**
+    * Either
+    */
+
+  import cats.syntax.either._
+
+  4.asRight[String]
+
+  case class Error(e: String)
+
+  /*
+    * These “smart constructors” have advantages over Left.apply and Right.apply
+    * because they return results of type Either instead of Left and Right.
+    * This helps avoid type inference bugs caused by over-narrowing
+    */
+  def sumPositive(l: List[Int]): Either[Error, Int] = {
+    l.foldLeft(0.asRight[Error]) { (acc: Either[Error, Int], i: Int) =>
+      if (i > 0) {
+        acc.map(_ + i)
+      } else {
+        Left(Error(s"negative value in list $i"))
+      }
+    }
+  }
+
+
+  sumPositive(List(1, 2, 3, -1, 4)) // Left(Error(negative value in list -1))
+  sumPositive(List(1, 2, 3, 4)) // Right(10)
+
+  /*
+    * Other useful Either extension methods
+    */
+  Either.catchOnly[NumberFormatException]("foo".toInt) // res3: Either[NumberFormatException,Int] = Left(java.lang.NumberFormatException: For input string: "foo")
+
+  Either.catchNonFatal(sys.error("uh oh")) // res4: Either[Throwable,Nothing] = Left(java.lang.RuntimeException: uh oh)
+  Either.fromTry(scala.util.Try("foo".toInt)) // res5: Either[Throwable,Int] = Left(java.lang.NumberFormatException: For input string: "foo")
+
+
+  /*
+   * Transforming Eithers
+   */
+
+  // p 373 Either from a try with a left map to handle error case
+  def squareString(s: String): Either[String, Int] = {
+    Either.fromTry(
+      Try {
+        val i = s.toInt
+        i * i
+      }
+    ).leftMap {
+      s => "doh!"
+    }
+  }
 
 
 }
+

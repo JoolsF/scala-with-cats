@@ -10,7 +10,7 @@ object Ch2MonoidBasics {
     * A monoid is a type with a combine operation of type (A, A) => A
     * and an identity operation of type A
     *
-    * Note that a semgigroup is just the combine part of a Monoid.
+    * Note that a semigroup is just the combine part of a Monoid.
     * Here we have split the type up into traits as some types
     * for which we cannot define an identity element.
     */
