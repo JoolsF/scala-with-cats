@@ -101,7 +101,7 @@ object Chapter4Monad_2 {
   import cats.Monad
   import cats.syntax.functor._ // for map
   import cats.syntax.flatMap._ // for flatMap
-  import scala.language.higherKinds
+//  import scala.language.higherKinds
 
 
   def sumSquare[F[_] : Monad](a: F[Int], b: F[Int]): F[Int] = {
@@ -257,7 +257,66 @@ object Chapter4Monad_2 {
 
 
 
+  import cats.Eval
 
+  /**
+    * Eval Monad
+    * Think of val, lazy val and def
+    * val / now        - both eagerly evaluated and the result is memoized i.e it can be recalled without recomputing
+    * lazy val / later - both lazily evaluated when called and the result is memoized
+    * def / always     - both lazily evaluated and the result is not memoized
+    * */
+
+  val now = Eval.now(math.random() + 1000) // now: cats.Eval[Double] = Now(1000.3050385215279)
+
+  val later = Eval.later(math.random() + 1000) // later: cats.Eval[Double] = cats.Later@28375e21
+
+  val always = Eval.always(math.random + 3000) // always: cats.Eval[Double] = cats.Always@308287f9
+
+
+  now.value
+  now.value
+
+  later.value
+  later.value
+
+  always.value
+  always.value
+
+  /*
+   * Eval has a memoize method that allows us to memoize a chain of computations. The result of the chain up to the
+   * call to memoize is cached, whereas calculations after the call retain their original semantics:
+   */
+
+  val saying = Eval.
+    always {println("Step 1"); "The cat"}
+    .map { str => println("Step 2"); s"$str sat on" }
+    .memoize
+    .map { str => println("Step 3"); s"$str the mat" }
+  // saying: cats.Eval[String] = cats.Eval$$anon$8@7a0389b5
+  saying.value // first access
+  // Step 1
+  // Step 2
+  // Step 3
+  // res18: String = The cat sat on the mat
+  saying.value // second access
+  // Step 3
+  // res19: String = The cat sat on the mat
+
+  /**
+    * Trampolining and Eval.defer
+    * One useful property of Eval is that its map and flatMap methods are trampolined.
+    * This means we can nest calls to map and flatMap arbitrarily without consuming stack frames.
+    * Eval is therefore stacksafe
+    */
+
+  def factorial(n: BigInt): Eval[BigInt] =
+    if(n == 1) {
+      Eval.now(n)
+    } else {
+      Eval.defer(factorial(n - 1).map(_ * n))
+    }
+  factorial(50000).value
 
 
 }
