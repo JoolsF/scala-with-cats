@@ -1,7 +1,5 @@
 package chapters
 
-import cats.Monad
-
 import scala.util.Try
 
 object Chapter4Monads {
@@ -73,8 +71,8 @@ object Chapter4Monads {
     */
 
   import cats.Monad
-  import cats.instances.option._
   import cats.instances.list._
+  import cats.instances.option._
 
   val opt1: Option[Int] = Monad[Option].pure(3) // Some(3)
 
@@ -99,9 +97,9 @@ object Chapter4Monad_2 {
     */
 
   import cats.Monad
-  import cats.syntax.functor._ // for map
-  import cats.syntax.flatMap._ // for flatMap
-//  import scala.language.higherKinds
+  import cats.syntax.flatMap._
+  import cats.syntax.functor._ // for flatMap
+  //  import scala.language.higherKinds
 
 
   def sumSquare[F[_] : Monad](a: F[Int], b: F[Int]): F[Int] = {
@@ -112,8 +110,8 @@ object Chapter4Monad_2 {
 
   }
 
-  import cats.instances.option._ // for Monad
-  import cats.instances.list._ // for Monad”
+  import cats.instances.list._
+  import cats.instances.option._ // for Monad”
 
   sumSquare(List(1, 2, 3), List(4, 5)) // res0: List[Int] = List(17, 26, 20, 29, 25, 34)
   sumSquare(Option(2), Option(9)) // res1: Option[Int] = Some(85)
@@ -256,7 +254,6 @@ object Chapter4Monad_2 {
   cubeString("foo") // Left(Error(For input string: "foo"))
 
 
-
   import cats.Eval
 
   /**
@@ -265,7 +262,7 @@ object Chapter4Monad_2 {
     * val / now        - both eagerly evaluated and the result is memoized i.e it can be recalled without recomputing
     * lazy val / later - both lazily evaluated when called and the result is memoized
     * def / always     - both lazily evaluated and the result is not memoized
-    * */
+    **/
 
   val now = Eval.now(math.random() + 1000) // now: cats.Eval[Double] = Now(1000.3050385215279)
 
@@ -289,7 +286,9 @@ object Chapter4Monad_2 {
    */
 
   val saying = Eval.
-    always {println("Step 1"); "The cat"}
+    always {
+      println("Step 1"); "The cat"
+    }
     .map { str => println("Step 2"); s"$str sat on" }
     .memoize
     .map { str => println("Step 3"); s"$str the mat" }
@@ -311,12 +310,27 @@ object Chapter4Monad_2 {
     */
 
   def factorial(n: BigInt): Eval[BigInt] =
-    if(n == 1) {
+    if (n == 1) {
       Eval.now(n)
     } else {
       Eval.defer(factorial(n - 1).map(_ * n))
     }
+
   factorial(50000).value
+
+  /**
+    * Exercise 4.6.5
+    * Safer folding using Eval
+    *
+    * Make the naive implementation of foldRight stacksafe
+    */
+  def foldRightNaive[A, B](as: List[A], acc: B)(fn: (A, B) => B): B =
+    as match {
+      case head :: tail =>
+        fn(head, foldRightNaive(tail, acc)(fn))
+      case Nil =>
+        acc
+    }
 
 
 }
