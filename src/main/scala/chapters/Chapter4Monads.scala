@@ -1,5 +1,7 @@
 package chapters
 
+import cats.data.{Writer, WriterT}
+
 import scala.util.Try
 
 object Chapter4Monads {
@@ -287,7 +289,8 @@ object Chapter4Monad_2 {
 
   val saying = Eval.
     always {
-      println("Step 1"); "The cat"
+      println("Step 1");
+      "The cat"
     }
     .map { str => println("Step 2"); s"$str sat on" }
     .memoize
@@ -332,6 +335,89 @@ object Chapter4Monad_2 {
         acc
     }
 
+  def foldRightEval[A, B](as: List[A], acc: Eval[B])(fn: (A, Eval[B]) => Eval[B]): Eval[B] =
+    as match {
+      case head :: tail =>
+        Eval.defer(fn(head, foldRightEval(tail, acc)(fn)))
+      case Nil =>
+        acc
+    }
+
+  def myFoldRight[A, B](as: List[A], acc: B)(fn: (A, B) => B): B = {
+    foldRightEval(as, Eval.now(acc)) { (a, b) =>
+      b.map(fn(a, _))
+    }
+  }.value
+
+
+  /**
+    * The Writer Monad
+    * cats.data.Writer is a monad that lets us carry a log along with a computation. We can use it to record messages,
+    * errors, or additional data about a computation, and extract the log alongside the final result.
+    * A Writer[W, A] carries two values: a log of type W and a result of type A
+    */
+
+  val w1: WriterT[cats.Id, Vector[String], Int] = //Notice that the type is WriterT.  Writer is implemented in terms of WriterT
+    Writer(
+      Vector(
+        "I am message one",
+        "I am message two"
+      ),
+      42
+    )
+
+  //Syntax can be used with a way by only specifying the log or result
+  //To do this we must have a Monoid[W] in scope so Cats knows how to produce an empty log:
+
+  import cats.instances.vector._ // for Monoid
+  import cats.syntax.applicative._ // for pure
+
+  type Logged[A] = Writer[Vector[String], A]
+
+  123.pure[Logged]
+
+  //If we have a log and no result we can create a Writer[Unit] using the tell syntax from cats.syntax.writer:
+
+  import cats.syntax.writer._
+
+  Vector("Log message 1", "Log message 2").tell
+
+
+  //If we have both...
+
+  123.writer(Vector("Log message 1", "Log message 2"))
+
+  //To get the result...
+
+  w1.value //cats.Id[Int] = 42
+
+  //To get the result
+  w1.written //cats.Id[Vector[String]] = Vector(I am message one, I am message two)
+
+  //To get both
+
+  w1.run //cats.Id[(Vector[String], Int)] = (Vector(I am message one, I am message two),42)
+
+
+  /**
+    * Composing and transforming writers
+    * The log is preserved when we map and flatmap over it
+    * It’s good practi􏰀ce to use a log type that has an efficient append and concatenate opera􏰀ons, such as a Vector:
+    */
+
+  //cats.data.WriterT[cats.Id,Vector[String],Int] =
+  // WriterT((Vector(123 result, 456 result, another message),579))
+  val w2 = for {
+    a <- 123.pure[Logged]
+    _ <- Vector("123 result").tell
+    b <- 456.writer(Vector("456 result"))
+    _ <- Vector("another message").tell
+  } yield a + b
+
+  //res6: cats.Id[(Vector[String], Int)] = (Vector(123 result, 456 result, another message),579)
+  w2.run
+
+  //We can transform the logs
 
 }
 
