@@ -2,6 +2,7 @@ package chapters
 
 import cats.data.{Writer, WriterT}
 
+import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 object Chapter4Monads {
@@ -413,11 +414,123 @@ object Chapter4Monad_2 {
     b <- 456.writer(Vector("456 result"))
     _ <- Vector("another message").tell
   } yield a + b
-
-  //res6: cats.Id[(Vector[String], Int)] = (Vector(123 result, 456 result, another message),579)
   w2.run
+  // cats.Id[(Vector[String], Int)] = (Vector(123 result, 456 result, another message),579)
+
 
   //We can transform the logs
+  w2.mapWritten(_.map(_.toUpperCase))
+  // cats.data.WriterT[cats.Id,scala.collection.immutable.Vector[String],Int] = WriterT((Vector(123 RESULT, 456 RESULT, ANOTHER MESSAGE),579))
 
+  //Or transform both
+  w2.bimap(
+    _.map(_.toUpperCase),
+    _ * 2
+  )
+  // cats.data.WriterT[cats.Id,scala.collection.immutable.Vector[String],Int] = WriterT((Vector(123 RESULT, 456 RESULT, ANOTHER MESSAGE),1158))
+
+  w2.mapBoth { (log, result) =>
+    (log.map(_ + "1"), result * 3)
+  }
+  // cats.data.WriterT[cats.Id,scala.collection.immutable.Vector[String],Int] = WriterT((Vector(123 result!, 456 result!, another message!),1737))
+
+  /**
+    * 4.7.3 Exercise: Show Your Working
+    * Transform factorial to run in parallel in such a way that, instead of interleaving the log,
+    * each log is seperate
+    */
+
+  import scala.concurrent.duration._
+
+  def slowly[A](body: => A) =
+    try body finally Thread.sleep(100)
+
+  def factorial(n: Int): Logged[Int] = {
+    for {
+      ans <- if (n == 0) {
+        1.pure[Logged]
+      } else {
+        slowly(factorial(n - 1).map(_ * n))
+      }
+      _ <- Vector(s"fact $n $ans").tell
+    } yield ans
+  }
+
+  val Vector((logA, ansA), (logB, ansB)) =
+    Await.result(Future.sequence(Vector(
+      Future(factorial(3).run),
+      Future(factorial(5).run)
+    )), 5.seconds)
+
+
+  /**
+    * The Reader Monad
+    * cats.data.Reader is a monad that allows us to sequence opera􏰀ons that de- pend on some input. Instances of Reader
+    * wrap up func􏰀ons of one argument, providing us with useful methods for composing them.
+    * One common use for Readers is dependency injecti􏰀on. If we have a number of opera􏰀ons that all depend on some
+    * external configurati􏰀on, we can chain them together using a Reader to produce one large opera􏰀on that accepts
+    * the configurati􏰀on as a parameter and runs our program in the order specified.
+    *
+    */
+
+
+  import cats.data.Reader
+
+  case class Cat(name: String, favoriteFood: String)
+
+  // Creating a Reader through the apply function
+  val catName: Reader[Cat, String] = Reader(cat => cat.name)
+
+
+  /**
+    * 4.8.3 Exercise: Hacking on Readers
+    * The classic use of Readers is to build programs that accept a configuration as a
+    * parameter. Let’s ground this with a complete example of a simple login system.
+    * Our configuration will consist of two databases: a list of valid users and a
+    * list of their passwords:
+    */
+
+  case class Db(usernames: Map[Int, String],
+                passwords: Map[String, String]
+               )
+
+
+  type DbReader[A] = Reader[Db, A]
+
+  def findUsername(userId: Int): DbReader[Option[String]] = Reader(_.usernames.get(userId))
+
+  def checkPassword(username: String,
+                    password: String): DbReader[Boolean] =
+    Reader(_.passwords.get(username).contains(password))
+
+  import cats.syntax.applicative._ // for pure
+
+  def checkLogin(userId: Int,
+                 password: String): DbReader[Boolean] =
+    for {
+      maybeUsername <- findUsername(userId)
+      passwordOk <- maybeUsername match {
+        case Some(u) => checkPassword(u, password)
+        case None => false.pure[DbReader]
+      }
+    } yield passwordOk
+
+
+  val users = Map(
+    1 -> "dade",
+    2 -> "kate",
+    3 -> "margo"
+  )
+  val passwords = Map(
+    "dade" -> "zerocool",
+    "kate" -> "acidburn",
+    "margo" -> "secret"
+  )
+
+  val db = Db(users, passwords)
+  checkLogin(1, "zerocool").run(db)
+  // res10: cats.Id[Boolean] = true
+  checkLogin(4, "davinci").run(db)
+  // res11: cats.Id[Boolean] = false
 }
 
