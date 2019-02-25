@@ -2,4 +2,5 @@
 /project/
 target
 src/main/scala/ScratchPad.scala
+src/main/scala/TestApp.scala
 *.sc

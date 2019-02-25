@@ -2,6 +2,7 @@ package chapters
 
 import cats.data.{Writer, WriterT}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
@@ -370,7 +371,7 @@ object Chapter4Monad_2 {
   //Syntax can be used with a way by only specifying the log or result
   //To do this we must have a Monoid[W] in scope so Cats knows how to produce an empty log:
 
-  import cats.instances.vector._ // for Monoid
+  import cats.instances.vector._
   import cats.syntax.applicative._ // for pure
 
   type Logged[A] = Writer[Vector[String], A]
@@ -532,5 +533,50 @@ object Chapter4Monad_2 {
   // res10: cats.Id[Boolean] = true
   checkLogin(4, "davinci").run(db)
   // res11: cats.Id[Boolean] = false
+
+
+  /**
+    * State Monad
+    * State[S,A] represents function of type S => (S , A)
+    * S is the state and A is the result
+    */
+
+  import cats.data.State
+
+  val aState = State[Int, String] { state =>
+    val result = state * 2
+    (result, s"The result of step a is $result")
+  }
+
+  val bState = State[Int, String] { state =>
+    val result = state * 4
+    (result, s"The result of step b is $result")
+  }
+
+  val both = for {
+    ares <- aState
+    bres <- bState
+  } yield (ares, bres)
+
+  //Get the state and result
+  both.run(10).value // res0: (Int, (String, String)) = (80,(The result of step a is 20,The result of step b is 80))
+
+
+  //Get the state ignore the result
+  both.runS(10).value //res1: Int = 80
+
+  //Get the result ignore the state
+  both.runA(10).value //res2: (String, String) = (The result of step a is 20,The result of step b is 80)
+
+  //Updates state and returns unit as result
+  State.set[Int](10)
+
+  // Extracts state via transformation function
+  val inspectDemo = State.inspect[Int, String](_ + "!")
+  inspectDemo.run(10).value // res4: (Int, String) = (10,10!)
+
+  // Modify updates the state using a modify function
+  val modifyDemo = State.modify[Int](_ + 8)
+  modifyDemo.run(5).value // res5: (Int, Unit) = (13,())
 }
 
