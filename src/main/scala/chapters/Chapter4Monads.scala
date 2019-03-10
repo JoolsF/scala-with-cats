@@ -1,6 +1,6 @@
 package chapters
 
-import cats.data.{Writer, WriterT}
+import cats.data.{IndexedStateT, State, Writer, WriterT}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
@@ -578,5 +578,105 @@ object Chapter4Monad_2 {
   // Modify updates the state using a modify function
   val modifyDemo = State.modify[Int](_ + 8)
   modifyDemo.run(5).value // res5: (Int, Unit) = (13,())
+
+
+  import cats.data.State._
+
+  // Using a for comp.  We would normally ignore the intermediate steps e.g a and b
+  val program: IndexedStateT[Eval, Int, Int, (Int, Int, Int)] = for {
+    a <- get[Int]
+    _ <- set[Int](a + 1)
+    b <- get[Int]
+    _ <- modify[Int](_ + 1)
+    c <- inspect[Int, Int](_ * 1000)
+    d <- inspect[Int, Int](_ * 1000)
+  } yield (a, b, c)
+
+  val (state, result) = program.run(1).value // result: (Int, Int, Int) = (1,2,4000)
+
+  /**
+    * 4.9.3: Post-Order calculator
+    */
+  import cats.data.State
+
+  type CalcState[A] = State[List[Int], A]
+
+  def evalOne(sym: String): CalcState[Int] = sym match {
+    case "+" => operator(_ + _)
+    case "-" => operator(_ - _)
+    case "*" => operator(_ * _)
+    case "/" => operator(_ / _)
+    case s => operand(s.toInt)
+  }
+
+  def operand(num: Int): CalcState[Int] =
+    State[List[Int], Int] { stack =>
+      (num :: stack, num)
+    }
+
+
+  def operator(func: (Int, Int) => Int): CalcState[Int] =
+    State[List[Int], Int] {
+      case a :: b :: tail =>
+        val ans = func(a, b)
+        (ans :: tail, ans)
+      case _ =>
+        sys.error("Fail!")
+    }
+
+  evalOne("*").run(List(2, 2)).value
+  evalOne("42").runA(Nil).value
+
+  val stateProgram = for {
+    _ <- evalOne("1")
+    _ <- evalOne("2")
+    ans <- evalOne("+")
+  } yield ans
+  // stateProgram: cats.data.IndexedStateT[cats.Eval,List[Int],List[Int],Int]
+  //  = cats.data.IndexedStateT@4b10e96e
+  stateProgram.runA(Nil).value
+  // res4: Int = 3
+
+
+  //Step 2 - Implement evalAll
+  import cats.syntax.applicative._ // for pure
+  def evalAll(input: List[String]): CalcState[Int] =
+    input.foldLeft(0.pure[CalcState]) { (a, b) =>
+      a.flatMap(_ => evalOne(b))
+    }
+
+  val stateProgram2 = evalAll(List("1", "2", "+", "3", "*"))
+  // stateProgram: CalcState[Int] = cats.data.IndexedStateT@2e788ab0
+  stateProgram2.run(Nil).value
+  // res6: Int = 9
+
+  /*
+    * Step 3
+    * Complete the exercise by implementing an evalInput function that splits an input String into symbols,
+    * calls evalAll, and runs the result with an initial stack.
+    */
+
+  //Based on assumption that symbols are space separated
+  def evalInput(str: String): Int = {
+    evalAll(str.split(" ").toList).runA(Nil).value
+  }
+
+  val stateProgram3 = evalInput("1 2 + 3 *")
+
+
+  // Composition
+  val stateProgram4 = for {
+    _   <- evalAll(List("1", "2", "+"))
+    _   <- evalAll(List("3", "4", "+"))
+    ans <- evalOne("*")
+  } yield ans
+
+  stateProgram4.runA(Nil).value
+  //res4: Int = 21
+
+
+
+
+
 }
 
