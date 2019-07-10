@@ -115,10 +115,10 @@ object Chapter6SemiGrpApplicative {
   Validated.fromTry(scala.util.Try("foo".toInt)) //cats.data.Validated[Throwable,Int] = Invalid(java.lang.NumberFormatException: For input string: "foo")
   Validated.fromEither(Left(List("error"))) // cats.data.Validated[List[String],Nothing] = Invalid(List(error))
 
-  (
-    "Error 1".invalid[Int],
-    "Error 2".invalid[Int]
-  ).tupled
+//  (
+//    "Error 1".invalid[Int],
+//    "Error 2".invalid[Int]
+//  ).tupled
 
   /**
     * Methods of validated
@@ -153,5 +153,51 @@ object Chapter6SemiGrpApplicative {
   /**
     * Exercise 6.4.4 - Form validation
     */
+  case class User(name: String, age: Int)
+
+  type FailFast[A] = Either[List[String], A]
+  type FailSlow[A] = Validated[List[String], A]
+
+  def createUser(html: Map[String, String]): FailSlow[User] =
+    (
+      readName(html).toValidated,
+      readage(html).toValidated
+    ).mapN(User.apply)
+
+
+  def readName(html: Map[String, String]): FailFast[String] =
+    for {
+      name <- getValue("name", html)
+      res <- nonBlank(name)
+    } yield res
+
+
+  def readage(html: Map[String, String]): FailFast[Int] =
+    for {
+      ageStr <- getValue("age", html)
+      age <- parseInt(ageStr)
+      res <- ageMustNotBeNegative(age)
+    } yield res
+
+
+  //Predicates
+  def ageMustNotBeNegative(age: Int): FailFast[Int] =
+    Either.cond(age >= 0, age, List(s"Age $age must not be negative"))
+
+  def foo(age: Int): FailFast[Int] =
+    Either.cond(age != -1, age, List(s"Age $age must not be -1"))
+
+
+  def getValue(key: String, html: Map[String, String]): FailFast[String] =
+    html.get(key).toRight(List(s"Key $key does not exist"))
+
+  def parseInt(str: String): FailFast[Int] =
+    Either.catchOnly[NumberFormatException](str.toInt)
+      .leftMap(throwable => List(s"$str must be an integer"))
+
+
+  def nonBlank(str: String): FailFast[String] =
+    Right(str)
+      .ensure(List(s"$str cannot be blank"))(_.length > 0)
 
 }
