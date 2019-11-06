@@ -2,7 +2,7 @@ name := "scala-with-cats"
 
 version := "0.1"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.12.11"
 
 scalacOptions += "-Ypartial-unification"
 
